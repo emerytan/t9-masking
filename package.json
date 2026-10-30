@@ -1,7 +1,7 @@
 {
     "name": "co3mask",
     "productName": "CO3 T9 Masking",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "script to control masking motors",
     "main": "index.js",
     "scripts": {

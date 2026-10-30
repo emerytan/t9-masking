@@ -53,6 +53,19 @@
             <h1 id="serverMessages" class="title">Messages</h1>
         </footer>
     </div>
+    <div id="connectionDialog" class="connection-dialog" role="dialog" aria-modal="true" aria-labelledby="connectionTitle" hidden>
+        <form id="connectionForm" class="connection-panel">
+            <h2 id="connectionTitle">Connect to CVM masking system</h2>
+            <p>A successful ping and TCP port 23 check saves this address for future startups.</p>
+            <label for="cvmAddress">IPv4 address</label>
+            <input id="cvmAddress" name="address" type="text" inputmode="decimal" placeholder="192.168.1.10" autocomplete="off" required>
+            <p id="connectionFeedback" role="status" aria-live="polite"></p>
+            <div class="connection-actions">
+                <button id="cancelConnection" type="button" class="modal-button">Cancel</button>
+                <button id="submitConnection" type="submit" class="modal-button primary">Connect</button>
+            </div>
+        </form>
+    </div>
     <script>
         require('./js/app.js')
     </script>

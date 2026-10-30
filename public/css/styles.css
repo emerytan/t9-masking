@@ -71,3 +71,74 @@ legend {
 .padded {
   overflow: hidden;
 }
+
+.connection-dialog[hidden] {
+    display: none;
+}
+
+.connection-dialog {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10;
+}
+
+.connection-panel {
+    width: 360px;
+    padding: 24px;
+    background: #202020;
+    border: 1px solid #777;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.connection-panel h2 {
+    margin: 0 0 20px;
+    color: rgb(0, 128, 128);
+    font-size: 1.25em;
+}
+
+.connection-panel label {
+    display: block;
+    margin-bottom: 6px;
+    color: #ddd;
+}
+
+.connection-panel input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px;
+    color: #222;
+    background: #fff;
+}
+
+#connectionFeedback {
+    min-height: 1.2em;
+    margin: 12px 0;
+}
+
+.connection-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.modal-button {
+    padding: 7px 14px;
+    color: #eee;
+    background: #373737;
+    border: 1px solid #999;
+    cursor: pointer;
+}
+
+.modal-button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.modal-button.primary {
+    background: #006f6f;
+}

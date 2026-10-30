@@ -1,13 +1,14 @@
-const { app, BrowserWindow, webContents } = require('electron')
+const { app, BrowserWindow, Menu } = require('electron')
 const path = require('path')
+const fs = require('fs').promises
 const ipc = require('electron').ipcMain
 const net = require('net')
+const { execFile } = require('child_process')
 const {
     StringDecoder
 } = require('string_decoder')
 const decoder = new StringDecoder('utf8')
-const host = '10.208.79.162'
-const port = '23'
+const port = 23
 let win = null
 let maskingMotors = null
 
@@ -29,8 +30,27 @@ function createWindow() {
     // win.webContents.openDevTools()
 }
 
+function createApplicationMenu() {
+    const menu = Menu.buildFromTemplate([
+        {
+            label: 'File',
+            submenu: [
+                {
+                    label: 'Set CVM address...',
+                    click: () => {
+                        if (win) win.webContents.send('show connection dialog')
+                    }
+                },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        }
+    ])
+    Menu.setApplicationMenu(menu)
+}
 
 app.whenReady().then(() => {
+    createApplicationMenu()
     createWindow()
 
     app.on('activate', () => {
@@ -40,7 +60,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
-        maskingMotors.end()
+        if (maskingMotors && !maskingMotors.destroyed) maskingMotors.end()
 
         setTimeout(() => {
             app.quit()
@@ -51,50 +71,190 @@ app.on('window-all-closed', () => {
 
 ipc.on('view loaded', () => {
     console.log('ipc: view loaded');
-    win.webContents.send('init view', 'T9 Masking Control version 0.0.2')
-    connectMotors()
+    win.webContents.send('init view', 'T9 Masking Control version 0.0.3')
+    connectSavedCvm()
 })
 
+ipc.on('connect to cvm', async (event, address) => {
+    if (!isValidIpv4(address)) {
+        event.sender.send('connection check result', {
+            success: false,
+            message: 'Enter CVM address.'
+        })
+        return
+    }
 
+    event.sender.send('connection status', `Checking ${address}...`)
+    let pingSucceeded
+    let portIsOpen
+    try {
+        ({ pingSucceeded, portIsOpen } = await checkCvmConnection(address))
+    } catch (error) {
+        event.sender.send('connection check result', {
+            success: false,
+            message: `Could not check the address: ${error.message}`
+        })
+        return
+    }
+    if (pingSucceeded && portIsOpen) {
+        try {
+            await saveCvmAddress(address)
+        } catch (error) {
+            event.sender.send('connection check result', {
+                success: false,
+                message: `The connection checks passed, but the address could not be saved: ${error.message}`
+            })
+            return
+        }
+    }
 
-function connectMotors() {
-    maskingMotors = net.createConnection({
-        host: host,
-        port: port
-    }, (socket) => {
-        console.log('created connection')
+    const message = `Ping ${pingSucceeded ? 'succeeded' : 'failed'}; TCP port ${port} is ${portIsOpen ? 'open' : 'not open'}.${pingSucceeded && portIsOpen ? ' Address saved.' : ''}`
+
+    event.sender.send('connection check result', {
+        success: pingSucceeded && portIsOpen,
+        address,
+        pingSucceeded,
+        portIsOpen,
+        message
     })
 
-    maskingMotors.on('connect', () => {
+    if (pingSucceeded && portIsOpen) connectMotors(address)
+})
+
+async function checkCvmConnection(address) {
+    const [pingSucceeded, portIsOpen] = await Promise.all([
+        pingHost(address),
+        checkTcpPort(address, port)
+    ])
+    return { pingSucceeded, portIsOpen }
+}
+
+function getCvmConfigPath() {
+    return path.join(app.getPath('userData'), 'cvm-config.json')
+}
+
+async function saveCvmAddress(address) {
+    const configPath = getCvmConfigPath()
+    await fs.mkdir(path.dirname(configPath), { recursive: true })
+    await fs.writeFile(configPath, JSON.stringify({ address }, null, 2), 'utf8')
+}
+
+async function connectSavedCvm() {
+    const sender = win.webContents
+    let config
+    try {
+        config = JSON.parse(await fs.readFile(getCvmConfigPath(), 'utf8'))
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            sender.send('connection status', 'No saved CVM address. Select File > Set CVM address to configure one.')
+            return
+        }
+        sender.send('connection status', `Could not read the saved CVM address: ${error.message}`)
+        return
+    }
+
+    if (!config || !isValidIpv4(config.address)) {
+        sender.send('connection status', 'The saved CVM address is invalid. Select File > Set CVM address to update it.')
+        return
+    }
+
+    sender.send('saved cvm address', config.address)
+    sender.send('connection status', `Checking saved CVM address ${config.address}...`)
+    let pingSucceeded
+    let portIsOpen
+    try {
+        ({ pingSucceeded, portIsOpen } = await checkCvmConnection(config.address))
+    } catch (error) {
+        sender.send('connection status', `Could not check the saved CVM address: ${error.message}`)
+        return
+    }
+    if (!pingSucceeded || !portIsOpen) {
+        sender.send('connection status', `Saved CVM address check failed: ping ${pingSucceeded ? 'succeeded' : 'failed'}, TCP port ${port} is ${portIsOpen ? 'open' : 'not open'}.`)
+        return
+    }
+
+    connectMotors(config.address)
+}
+
+function isValidIpv4(address) {
+    if (typeof address !== 'string') return false
+    const octetPattern = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)'
+    return new RegExp(`^${octetPattern}(?:\\.${octetPattern}){3}$`).test(address)
+}
+
+function pingHost(address) {
+    return new Promise((resolve) => {
+        const args = process.platform === 'win32'
+            ? ['-n', '1', '-w', '2000', address]
+            : ['-c', '1', address]
+        execFile('ping', args, { timeout: 3000 }, (error) => {
+            resolve(!error)
+        })
+    })
+}
+
+function checkTcpPort(address, targetPort) {
+    return new Promise((resolve) => {
+        const socket = net.createConnection({ host: address, port: targetPort })
+        let settled = false
+        const finish = (isOpen) => {
+            if (settled) return
+            settled = true
+            socket.destroy()
+            resolve(isOpen)
+        }
+
+        socket.setTimeout(2000)
+        socket.once('connect', () => finish(true))
+        socket.once('timeout', () => finish(false))
+        socket.once('error', () => finish(false))
+    })
+}
+
+function connectMotors(address) {
+    if (maskingMotors && !maskingMotors.destroyed) maskingMotors.destroy()
+    const socket = net.createConnection({
+        host: address,
+        port: port
+    })
+    maskingMotors = socket
+
+    socket.on('connect', () => {
+        win.webContents.send('connection status', `Connected to ${address}; initializing motors...`)
         setTimeout(() => {
-            maskingMotors.write(Buffer.from('t1\r\n'))
+            if (!socket.destroyed) socket.write(Buffer.from('t1\r\n'))
         }, 1000)
         setTimeout(() => {
-            maskingMotors.write(Buffer.from('password\r\n'))
+            if (!socket.destroyed) socket.write(Buffer.from('password\r\n'))
         }, 2000)
         setTimeout(() => {
-            maskingMotors.write(Buffer.from('#1.1.2.MOTOR.POSITION=?\r\n'))
-            win.webContents.send('activate buttons', false)
+            if (!socket.destroyed) {
+                socket.write(Buffer.from('#1.1.2.MOTOR.POSITION=?\r\n'))
+                win.webContents.send('activate buttons', false)
+                win.webContents.send('connection status', `Connected to ${address}.`)
+            }
         }, 4000)
     })
 
-    maskingMotors.on('data', (data) => {
+    socket.on('data', (data) => {
         console.log(decoder.write(data.subarray(0, -2)))
         win.webContents.send('server messages', decoder.write(data.subarray(0, -2)))
     })
 
-    maskingMotors.on('close', () => {
+    socket.on('close', () => {
         console.log('masking motor connection closed')
         // win.webContents.send('activate buttons', false)
     })
 
-    maskingMotors.on('end', () => {
+    socket.on('end', () => {
         console.log('masking motor connection ended')
         // win.webContents.send('activate buttons', false)
     })
 
-    maskingMotors.on('error', (err) => {
+    socket.on('error', (err) => {
         console.log(err)
+        win.webContents.send('connection status', `Connection error: ${err.message}`)
+        win.webContents.send('activate buttons', true)
         // win.webContents.send('activate buttons', false)
     })
 
@@ -107,6 +267,10 @@ ipc.on('masking loaded', () => {
 
 ipc.on('masking command', (event, msg) => {
     console.log(`masking motor command: ${msg.command}`)
+    if (!maskingMotors || maskingMotors.destroyed || !maskingMotors.writable) {
+        event.sender.send('connection status', 'Not connected to the CVM masking system.')
+        return
+    }
     switch (msg.command) {
         case 'maskingScope':
             maskingMotors.write('#1.1.0.MOTOR=RECALL,1\r\n')
