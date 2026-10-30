@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>CO3 T9 Masking</title>
+    <!-- https://electronjs.org/docs/tutorial/security#csp-meta-tag -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" /> -->
+    <link rel="stylesheet" href="./public/css/photon.css">
+    <link rel="stylesheet" href="./public/css/styles.css">
+</head>
+
+<body>
+    <div class="window">
+        <header>
+            <h1 id="maskingTitle" class="title">CO3 T9 Masking</h1>
+        </header>
+        <div class="window-content">
+            <div class="pane-group">
+                <div class="pane" id="maskingContainer">
+                    <div id="maskingPresets">
+                        <legend class="legend">Presets</legend>
+                        <button id="maskingScope" class="btn btn-large btn-dark eta-button">Scope</button>
+                        <button id="maskingFlat" class="btn btn-large btn-dark eta-button">Flat</button>
+                    </div>
+                </div>
+                <div class="pane">
+                    <div id="leftMasking">
+                        <legend class="legend">Left side</legend>
+                        <button id="leftClose" class="btn btn-large btn-dark eta-button">&lt;&lt;&lt;&lt;</button>
+                        <button id="leftOpen" class="btn btn-large btn-dark eta-button">&gt;&gt;&gt;&gt;</button>
+                    </div>
+                </div>
+                <div class="pane">
+                    <div id="rightMasking">
+                        <legend class="legend">Right side</legend>
+                        <button id="rightClose" class="btn btn-large btn-dark eta-button">&lt;&lt;&lt;&lt;</button>
+                        <button id="rightOpen" class="btn btn-large btn-dark eta-button">&gt;&gt;&gt;&gt;</button>
+                    </div>
+                </div>
+                <div class="pane">
+                    <div id="bottomMasking">
+                        <legend class="legend">Bottom</legend>
+                        <button id="bottomRaise" class="btn btn-large btn-dark eta-button">Raise</button>
+                        <button id="bottomLower" class="btn btn-large btn-dark eta-button">Lower</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <h1 id="appState" class="title">Footer</h1>
+            <h1 id="serverMessages" class="title">Messages</h1>
+        </footer>
+    </div>
+    <script>
+        require('./js/app.js')
+    </script>
+</body>
+
+</html>

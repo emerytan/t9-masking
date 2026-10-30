@@ -1,0 +1,42 @@
+{
+    "name": "co3mask",
+    "productName": "CO3 T9 Masking",
+    "version": "0.0.2",
+    "description": "script to control masking motors",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "elec": "electron index.js",
+        "build": "electron-builder"
+    },
+    "build": {
+        "appId": "co3-t9-masking",
+        "win": {
+            "target": [
+                "nsis"
+            ],
+            "icon": "./CO3logo.ico"
+        },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": true,
+            "installerIcon": "./CO3logo.ico",
+            "uninstallerIcon": "./CO3logo.ico",
+            "uninstallDisplayName": "CO3 T9 Masking",
+            "license": "./license.md",
+            "allowToChangeInstallationDirectory": true
+        }
+    },
+    "author": "Company3",
+    "license": "ISC",
+    "dependencies": {
+        "photonkit": "^0.1.2"
+    },
+    "devDependencies": {
+        "electron": "^45.1.0",
+        "electron-builder": "^26.18.0"
+    },
+    "allowScripts": {
+        "electron-winstaller@5.4.0": true
+    }
+}
